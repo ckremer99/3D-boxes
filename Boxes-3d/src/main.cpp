@@ -1,7 +1,45 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
 #include <iostream>
+#include <fstream>
+#include <sstream> 
+
+struct ShaderProgramSource {
+    std::string VertexSource;
+    std::string FragmentSource;
+};
+
+static ShaderProgramSource ParseShader(const std::string filepath) {
+    std::ifstream stream(filepath);
+    
+    if (!stream.is_open()) {
+        std::cerr << "Error: Could not open file: " << filepath << std::endl;
+        return {"", ""};  // Return empty strings if file cannot be opened
+    }
+    
+    enum class ShaderType {
+        NONE = -1,
+        VERTEX = 0,
+        FRAGMENT = 1
+    };
+    
+    ShaderType type = ShaderType::NONE;
+    
+    std::stringstream ss[2];
+    std::string line;
+    while(std::getline(stream, line)) {
+        if (line.find("#shader") != std::string::npos) {
+            if (line.find("vertex") != std::string::npos) {
+                type = ShaderType::VERTEX;
+            } else if (line.find("fragment") != std::string::npos) {
+                type = ShaderType::FRAGMENT;
+            }
+        } else {
+            ss[(int)type] << line << '\n';
+        }
+    }
+    return {ss[0].str(), ss[1].str()};
+}
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window);
@@ -9,19 +47,6 @@ void processInput(GLFWwindow *window);
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
-
-const char *vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}\0";
-const char *fragmentShaderSource = "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-    "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-    "}\n\0";
 
 int main()
 {
@@ -76,9 +101,17 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     
+    ShaderProgramSource source = ParseShader("res/shaders/Basic.shader");
+    
+    std::cout << source.VertexSource << std::endl;
+    std::cout << source.FragmentSource << std::endl;
+    
+    const char* vertexSource = source.VertexSource.c_str();
+    const char* fragmentSource = source.FragmentSource.c_str();
+    
     unsigned int vertexShader;
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glShaderSource(vertexShader, 1, &vertexSource, NULL);
     glCompileShader(vertexShader);
     
     int success;
@@ -92,7 +125,7 @@ int main()
     
     unsigned int fragmentShader;
     fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
     glCompileShader(fragmentShader);
     
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
